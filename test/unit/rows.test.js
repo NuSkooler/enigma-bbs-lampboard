@@ -326,3 +326,43 @@ describe('rows: helpers', () => {
         assert.equal(infoFields(rows[0], totals, {}).areaName, '');
     });
 });
+
+describe('rows: lastPostLine', () => {
+    const ctx = {
+        neverText: 'never',
+        lastPostLineFormat: '|08Last post |07{lastPost}',
+        formatDate: () => 'DATE',
+    };
+    const area = { key: 'a', areaName: 'A', lastPostTs: new Date(0) };
+
+    it('the format with {lastPost} for a focused area', () => {
+        assert.equal(infoFields(area, {}, ctx).lastPostLine, '|08Last post |07DATE');
+        assert.equal(
+            infoFields(Object.assign({}, area, { lastPostTs: null }), {}, ctx)
+                .lastPostLine,
+            '|08Last post |07never'
+        );
+    });
+
+    it('empty with no focused area (empty table, group row)', () => {
+        assert.equal(infoFields(null, {}, ctx).lastPostLine, '');
+        assert.equal(
+            infoFields({ kind: 'group', key: '@conf:x' }, {}, ctx).lastPostLine,
+            ''
+        );
+    });
+
+    it('uses ctx.format when given; empty format means empty', () => {
+        const f = infoFields(
+            area,
+            {},
+            Object.assign({}, ctx, { format: () => 'FORMATTED' })
+        );
+        assert.equal(f.lastPostLine, 'FORMATTED');
+        assert.equal(
+            infoFields(area, {}, Object.assign({}, ctx, { lastPostLineFormat: '' }))
+                .lastPostLine,
+            ''
+        );
+    });
+});

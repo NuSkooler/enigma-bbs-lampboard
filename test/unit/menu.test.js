@@ -142,6 +142,91 @@ describe('repo layout', () => {
     });
 });
 
+//  plain text: SGR and pipe codes dropped
+const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '').replace(/\|[0-9]{2}/g, '');
+
+describe('placeholder art', () => {
+    it('help: every key is separated from its description', () => {
+        const help = fs.readFileSync(
+            paths.join(RepoRoot, 'art', 'LAMPBRDHLP.ANS'),
+            'latin1'
+        );
+        //  key lines: two-space indent, key, two or more spaces, description
+        const lines = help.split('\r\n').map(plain);
+        const keyLines = lines.slice(2, 14);
+        keyLines.forEach(l =>
+            assert.match(l, /^ {2}\S(.*?\S)? {2,}\S/, `bad key line: ${l}`)
+        );
+        assert.ok(lines.some(l => l.includes('Up/Down PgUp/PgDn  Move')));
+    });
+
+    it('help: no line is wider than 79 columns', () => {
+        const help = fs.readFileSync(
+            paths.join(RepoRoot, 'art', 'LAMPBRDHLP.ANS'),
+            'latin1'
+        );
+        help.split('\r\n')
+            .map(plain)
+            .forEach(l => assert.ok(l.length <= 79, `too wide: ${l}`));
+    });
+});
+
+describe(
+    'default info formats fit the shipped TL widths',
+    { skip: !hjson && 'hjson not installed' },
+    () => {
+        const {
+            ConfigDefaults,
+            InfoFormatDefaults,
+            TableDefaults,
+        } = require('../../lib/defaults.js');
+        const longest = (...texts) =>
+            texts.reduce((a, b) => (b.length > a.length ? b : a), '');
+        const labels = Object.values(TableDefaults.columns).map(c => c.label || '');
+
+        //  the longest each field can be with the default texts
+        const worst = {
+            scopeText: longest(
+                ConfigDefaults.scopeNewScanText,
+                ConfigDefaults.scopeAllText
+            ),
+            filterText: longest(
+                ConfigDefaults.filterOnText,
+                ConfigDefaults.filterOffText
+            ),
+            sortText: ConfigDefaults.sortFormat
+                .replace(
+                    '{sortLabel}',
+                    longest(ConfigDefaults.moduleOrderText, ...labels)
+                )
+                .replace(
+                    '{sortOrderText}',
+                    longest(ConfigDefaults.sortAscText, ConfigDefaults.sortDescText)
+                ),
+            //  'MM/DD/YYYY h:mm a', a long theme date/time format
+            lastPostLine: ConfigDefaults.lastPostLineFormat.replace(
+                '{lastPost}',
+                '11/19/2026 10:45 pm'
+            ),
+        };
+
+        it('each default, at its longest, fits its view in menus/lampboard.hjson', () => {
+            const { menus } = hjson.parse(source);
+            const mci = menus.lampboardMain.form[0].mci;
+            Object.keys(InfoFormatDefaults).forEach(id => {
+                const text = plain(
+                    InfoFormatDefaults[id].replace(/\{(\w+)\}/g, (m, f) => worst[f])
+                );
+                const width = mci[`TL${id}`].width;
+                assert.ok(
+                    text.length <= width,
+                    `mainInfoFormat${id} needs ${text.length} > TL${id} width ${width}: ${text}`
+                );
+            });
+        });
+    }
+);
+
 describe('README', () => {
     const readme = fs.readFileSync(paths.join(RepoRoot, 'README.md'), 'utf8');
     const blocks = [...readme.matchAll(/```hjson\n([\s\S]*?)```/g)].map(m => m[1]);
