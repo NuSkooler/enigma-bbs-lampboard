@@ -1,0 +1,219 @@
+//
+//  lampboard menus: copy this file to config/menus/ and add it to the
+//  "includes" list of your main menu file, or paste the two entries into
+//  your menu file. See README.md for routing the "!" key and the login new
+//  scan prompt here.
+//
+//  lampboardMain   the message index from the main menu. Quit goes back.
+//  lampboardLogin  the login new scan. With nothing new it goes straight to
+//                  "next" without drawing anything; quit goes on to "next".
+//
+//  The two entries differ only in "next": lampboard has no config key for
+//  the flow. Both take the same config (see README.md); each entry is
+//  customised on its own in theme.hjson.
+//
+//  The art (config.art.main / config.art.help, defaults LAMPBRD and
+//  LAMPBRDHLP) is drawn by the module itself, so these entries have no
+//  "art" key.
+//
+//  Keys: Enter is "return" in ENiGMA. Home, End, Page Up/Down and the arrows
+//  are the table's own and are deliberately not bound here.
+//
+{
+    menus: {
+        lampboardMain: {
+            desc: Message Index
+            module: @userModule:lampboard
+            config: {
+                //  See README.md for every key and its default
+            }
+            form: {
+                0: {
+                    //  sizes match the shipped LAMPBRD.ANS; change them with your art
+                    mci: {
+                        //  the area table (layout defaults are in code; see README)
+                        TV1: {
+                            focus: true
+                            submit: true
+                            argName: areaTag
+                            height: 16
+                        }
+                        //  status line
+                        TL2: {
+                            width: 78
+                        }
+                        //  focused area's description
+                        TL3: {
+                            width: 78
+                            textOverflow: ".."
+                        }
+                        //  custom range (mainInfoFormat10...)
+                        TL10: {
+                            width: 38
+                        }
+                        TL11: {
+                            width: 38
+                        }
+                        TL12: {
+                            width: 78
+                        }
+                    }
+                    submit: {
+                        *: [
+                            {
+                                value: {
+                                    areaTag: null
+                                }
+                                action: @method:readArea
+                            }
+                        ]
+                    }
+                    actionKeys: [
+                        {
+                            keys: [ "n", "shift + n", "tab" ]
+                            action: @method:nextNew
+                        }
+                        {
+                            keys: [ "v", "shift + v" ]
+                            action: @method:toggleScope
+                        }
+                        {
+                            keys: [ "f", "shift + f" ]
+                            action: @method:toggleFilter
+                        }
+                        {
+                            keys: [ "m", "shift + m" ]
+                            action: @method:markRead
+                        }
+                        {
+                            keys: [ "r", "shift + r" ]
+                            action: @method:rescan
+                        }
+                        {
+                            keys: [ "s", "shift + s" ]
+                            action: @method:cycleSort
+                        }
+                        {
+                            keys: [ "o", "shift + o" ]
+                            action: @method:toggleSortOrder
+                        }
+                        {
+                            keys: [ "?", "h", "shift + h" ]
+                            action: @method:help
+                        }
+                        {
+                            keys: [ "q", "shift + q", "escape" ]
+                            action: @method:quit
+                        }
+                    ]
+                }
+            }
+        }
+
+        lampboardLogin: {
+            desc: Message Index
+            module: @userModule:lampboard
+            //  Stock new scan also scans the file base; lampboard does not.
+            //  To keep the file new scan at login, change this to
+            //  fullLoginSequenceFileScan (below; needs an ENiGMA½ whose
+            //  new_scan has skipMessageBase).
+            next: fullLoginSequenceSysStats
+            config: {
+                //  See README.md for every key and its default
+            }
+            form: {
+                0: {
+                    //  sizes match the shipped LAMPBRD.ANS; change them with your art
+                    mci: {
+                        //  the area table (layout defaults are in code; see README)
+                        TV1: {
+                            focus: true
+                            submit: true
+                            argName: areaTag
+                            height: 16
+                        }
+                        //  status line
+                        TL2: {
+                            width: 78
+                        }
+                        //  focused area's description
+                        TL3: {
+                            width: 78
+                            textOverflow: ".."
+                        }
+                        //  custom range (mainInfoFormat10...)
+                        TL10: {
+                            width: 38
+                        }
+                        TL11: {
+                            width: 38
+                        }
+                        TL12: {
+                            width: 78
+                        }
+                    }
+                    submit: {
+                        *: [
+                            {
+                                value: {
+                                    areaTag: null
+                                }
+                                action: @method:readArea
+                            }
+                        ]
+                    }
+                    actionKeys: [
+                        {
+                            keys: [ "n", "shift + n", "tab" ]
+                            action: @method:nextNew
+                        }
+                        {
+                            keys: [ "v", "shift + v" ]
+                            action: @method:toggleScope
+                        }
+                        {
+                            keys: [ "f", "shift + f" ]
+                            action: @method:toggleFilter
+                        }
+                        {
+                            keys: [ "m", "shift + m" ]
+                            action: @method:markRead
+                        }
+                        {
+                            keys: [ "r", "shift + r" ]
+                            action: @method:rescan
+                        }
+                        {
+                            keys: [ "s", "shift + s" ]
+                            action: @method:cycleSort
+                        }
+                        {
+                            keys: [ "o", "shift + o" ]
+                            action: @method:toggleSortOrder
+                        }
+                        {
+                            keys: [ "?", "h", "shift + h" ]
+                            action: @method:help
+                        }
+                        {
+                            keys: [ "q", "shift + q", "escape" ]
+                            action: @method:quit
+                        }
+                    ]
+                }
+            }
+        }
+
+        //  A files-only new scan for the login chain:
+        //  lampboardLogin -> fullLoginSequenceFileScan -> fullLoginSequenceSysStats
+        fullLoginSequenceFileScan: {
+            desc: New Scan
+            module: new_scan
+            art: NEWSCAN
+            next: fullLoginSequenceSysStats
+            config: {
+                skipMessageBase: true
+            }
+        }
+    }
+}

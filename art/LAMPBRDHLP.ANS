@@ -1,0 +1,20 @@
+[0;1;36m lampboard [0;1;30mÄÄ [0;1;37mMessage Index Help[0;1;30m ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+  [0;1;37mEnter           [0;37mRead the highlighted area
+  [0;1;37mUp/Down PgUp/PgDn[0;37mMove
+  [0;1;37mHome/End        [0;37mFirst / last area
+  [0;1;37mN or Tab        [0;37mNext area with new messages
+  [0;1;37mV               [0;37mToggle your new scan areas / all areas
+  [0;1;37mF               [0;37mToggle showing only areas with new messages
+  [0;1;37mM               [0;37mMark the highlighted area read
+  [0;1;37mR               [0;37mRe-scan for new messages
+  [0;1;37mS               [0;37mSort by the next column (then back to board order)
+  [0;1;37mO               [0;37mFlip the sort order
+  [0;1;37m? or H          [0;37mThis help
+  [0;1;37mQ or Esc        [0;37mQuit
+
+  [0;1;30mAreas with new messages are bright; areas with new messages to you are
+  [0;1;30mhighlighted. Reading an area returns here at its last message.
+
+[0;1;30mÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ [0;37mPress any key to return[0m
