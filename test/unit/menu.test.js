@@ -141,3 +141,48 @@ describe('repo layout', () => {
         });
     });
 });
+
+describe('README', () => {
+    const readme = fs.readFileSync(paths.join(RepoRoot, 'README.md'), 'utf8');
+    const blocks = [...readme.matchAll(/```hjson\n([\s\S]*?)```/g)].map(m => m[1]);
+
+    it('every hjson snippet parses', { skip: !hjson && 'hjson not installed' }, () => {
+        assert.ok(blocks.length > 0);
+        blocks.forEach(b => {
+            const src = b.trim();
+            const parses = [src, `{${src}}`].some(s => {
+                try {
+                    hjson.parse(s);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            });
+            assert.ok(parses, `does not parse:\n${src}`);
+        });
+    });
+
+    it(
+        'the table layout block matches the code defaults',
+        {
+            skip: !hjson && 'hjson not installed',
+        },
+        () => {
+            const { TableDefaults } = require('../../lib/defaults.js');
+            const block = blocks.find(b => b.startsWith('header: true'));
+            assert.ok(block, 'no table layout block');
+            assert.deepEqual(
+                JSON.parse(JSON.stringify(hjson.parse(`{${block}}`))),
+                JSON.parse(JSON.stringify(TableDefaults))
+            );
+        }
+    );
+
+    it('documents every config key', () => {
+        const { ConfigDefaults } = require('../../lib/defaults.js');
+        Object.keys(ConfigDefaults).forEach(k => {
+            const key = 'art' === k ? 'art.main' : k;
+            assert.ok(readme.includes(`\`${key}\``), `README lacks ${key}`);
+        });
+    });
+});

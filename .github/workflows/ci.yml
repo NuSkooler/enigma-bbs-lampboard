@@ -1,0 +1,63 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+jobs:
+    unit:
+        name: Lint and unit tests
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+
+            - run: npm ci
+            - run: npm run lint
+            - run: npm run pretty:check
+            - run: npm test
+
+    integration:
+        name: Integration (ENiGMA½ ${{ matrix.enigma-ref }})
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                #  later: also the oldest supported release tag
+                enigma-ref: [master]
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  path: lampboard
+
+            - uses: actions/checkout@v4
+              with:
+                  repository: NuSkooler/enigma-bbs
+                  ref: ${{ matrix.enigma-ref }}
+                  path: enigma-bbs
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+
+            - name: Install ENiGMA½
+              working-directory: enigma-bbs
+              run: npm ci
+
+            #  installed the way operators do it: symlinked into mods/
+            - name: Link lampboard into mods/
+              run: ln -s "$GITHUB_WORKSPACE/lampboard" "$GITHUB_WORKSPACE/enigma-bbs/mods/lampboard"
+
+            - name: Install lampboard dev tools
+              working-directory: lampboard
+              run: npm ci
+
+            - name: Integration tests
+              working-directory: lampboard
+              env:
+                  ENIGMA_ROOT: ${{ github.workspace }}/enigma-bbs
+              run: npm run test:integration
