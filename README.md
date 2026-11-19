@@ -238,7 +238,7 @@ columnOrder: [ "flag", "area", "total", "new", "yours", "last" ]
 columns: {
     flag: { field: "newIndicator", width: 3, sgr: "|15" }
     area: { field: "areaName", label: "Area", width: "fill", textOverflow: ".." }
-    total: { field: "total", label: "Total", type: "number", width: 6, format: "{value:,}", sgr: "|03", sortOrder: "desc" }
+    total: { field: "total", label: "Total", type: "number", width: 6, format: "{value:,}", sortOrder: "desc" }
     new: {
         field: "newCount", label: "New", type: "number", width: 5, sgr: "|08", sortOrder: "desc"
         rules: [ { when: "> 0", sgr: "|10" }, { when: "= 0", text: "-" } ]

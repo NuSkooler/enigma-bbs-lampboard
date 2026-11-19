@@ -15,3 +15,4 @@ All notable changes to lampboard are listed here. The format follows [Keep a Cha
   - Defaults in code for every `config` key, the table layout (`tv.setDefaults()`) and the `%TL10`+ formats; overrides through menu and `theme.hjson` as usual.
   - Feature detection at startup and on entry instead of a version gate; non-ANSI callers are sent on or back with a message.
   - Placeholder art (`LAMPBRD`, `LAMPBRDHLP`).
+  - Read rows are dim across every column; the Total column has no colour of its own.
