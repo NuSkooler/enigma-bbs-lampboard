@@ -107,9 +107,16 @@ describe('integration: lampboard module', { skip }, () => {
     let UserProps;
     const saved = {};
     let db; //  the stub message DB: { stats, markCalls, statsCalls }
+    let features;
+
+    //  a %TL10+ view showing a module default: the default with core's
+    //  getDefaultCustomInfoFormats() (#1128); blank without it (an unset
+    //  format leaves the view untouched)
+    const infoDefault = text => (features.infoFormatDefaults ? text : '');
 
     before(() => {
         H.installCore();
+        features = H.coreFeatures();
         messageArea = H.enigma('core/message_area.js');
         UserProps = H.enigma('core/user_property.js');
 
@@ -249,9 +256,9 @@ describe('integration: lampboard module', { skip }, () => {
         assert.equal(text(inst, 2), '4 of 8 areas have new messages');
         assert.equal(text(inst, 3), 'Private user to user mail');
         //  %TL10+ module defaults (MenuModule.getDefaultCustomInfoFormats)
-        assert.equal(text(inst, 10), 'Last post never');
-        assert.equal(text(inst, 11), 'Sorted by board order');
-        assert.equal(text(inst, 12), 'Your new scan areas, All areas shown');
+        assert.equal(text(inst, 10), infoDefault('Last post never'));
+        assert.equal(text(inst, 11), infoDefault('Sorted by board order'));
+        assert.equal(text(inst, 12), infoDefault('Your new scan areas, All areas shown'));
         //  one stats query over every readable area
         assert.equal(db.statsCalls.length, 1);
         assert.equal(db.statsCalls[0].length, 8);
@@ -338,7 +345,7 @@ describe('integration: lampboard module', { skip }, () => {
         assert.ok(keys.includes('fsx_mystic'));
         assert.equal(focusedKey(inst), 'fsx_gen');
         assert.equal(text(inst, 2), 'All areas');
-        assert.equal(text(inst, 12), 'All areas, All areas shown');
+        assert.equal(text(inst, 12), infoDefault('All areas, All areas shown'));
         //  no new query
         assert.equal(db.statsCalls.length, 1);
         client.press('V', 'shift + v');
@@ -596,7 +603,7 @@ describe('integration: lampboard module', { skip }, () => {
         client.press('o');
         assert.deepEqual(tv(inst).getSort().order, 'desc');
         assert.equal(text(inst, 2), 'Sorted by Area descending');
-        assert.equal(text(inst, 11), 'Sorted by Area descending');
+        assert.equal(text(inst, 11), infoDefault('Sorted by Area descending'));
     });
 
     it('?: shows the help art; any key brings the index back, still working', async () => {
@@ -664,13 +671,16 @@ describe('integration: lampboard module', { skip }, () => {
     //  ── review fixes ────────────────────────────────────────────────────────
 
     it('config.dateTimeFormat formats {lastPost}; otherwise the theme format', async () => {
+        //  the format set in config, so this holds with or without core's
+        //  module default formats
+        const lastPostLine = { mainInfoFormat10: '{lastPostLine}' };
         const own = await enter('lampboardMain', {
-            config: { dateTimeFormat: '[on] DD/MM/YYYY' },
+            config: Object.assign({ dateTimeFormat: '[on] DD/MM/YYYY' }, lastPostLine),
         });
         own.client.press('n'); //  fsx_gen, last post 2026-11-18T12:00Z
         assert.equal(text(own.inst, 10), 'Last post on 18/11/2026');
 
-        const themed = await enter('lampboardMain');
+        const themed = await enter('lampboardMain', { config: lastPostLine });
         themed.client.press('n');
         //  the fake theme's 'YYYY-MM-DD HH:mm'
         assert.match(text(themed.inst, 10), /^Last post 2026-11-1[89] \d\d:\d\d$/);
@@ -678,7 +688,9 @@ describe('integration: lampboard module', { skip }, () => {
 
     it('an empty table leaves the last post line blank', async () => {
         db.stats = noneNew();
-        const { inst } = await enter('lampboardMain', { config: { hideNoNew: true } });
+        const { inst } = await enter('lampboardMain', {
+            config: { hideNoNew: true, mainInfoFormat10: '{lastPostLine}' },
+        });
         assert.equal(tv(inst).getItems().length, 0);
         assert.equal(text(inst, 10), '');
         assert.equal(text(inst, 3), '');

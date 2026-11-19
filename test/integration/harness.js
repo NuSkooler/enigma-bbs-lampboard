@@ -39,6 +39,27 @@ function enigma(relPath) {
     return require(paths.join(EnigmaRoot, relPath));
 }
 
+//
+//  Optional core features the tests assert differently on. Call after
+//  installCore(). (#1126 skipMessageBase and #1127 focusWhenNoneNew are not
+//  here: lampboard only passes them on, and no test depends on what core
+//  then does with them.)
+//
+//    infoFormatDefaults  MenuModule.getDefaultCustomInfoFormats() (#1128):
+//                        without it the %TL10+ views show only formats set
+//                        in config, and the boot logs a warning
+//    modArtFallback      module_util.getModArtPath() (#1121)
+//
+function coreFeatures() {
+    const { MenuModule } = enigma('core/menu_module.js');
+    const moduleUtil = enigma('core/module_util.js');
+    return {
+        infoFormatDefaults:
+            'function' === typeof MenuModule.prototype.getDefaultCustomInfoFormats,
+        modArtFallback: 'function' === typeof moduleUtil.getModArtPath,
+    };
+}
+
 function makeLogStub(sink = []) {
     const stub = {};
     ['trace', 'debug', 'info', 'warn', 'error', 'fatal'].forEach(level => {
@@ -293,6 +314,7 @@ module.exports = {
     EnigmaRoot,
     skipReason,
     enigma,
+    coreFeatures,
     makeLogStub,
     testConfig,
     testConferences,

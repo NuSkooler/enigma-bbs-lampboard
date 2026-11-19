@@ -16,9 +16,17 @@ describe('integration: core', { skip }, () => {
     let rows;
     let TableView;
     let logSink;
+    let features;
+    //  the warnings checkCore() should give on this core
+    const expectedWarnings = () =>
+        [
+            !features.modArtFallback && /^no mod art fallback/,
+            !features.infoFormatDefaults && /^no default custom info formats/,
+        ].filter(Boolean);
 
     before(() => {
         ({ logSink } = H.installCore());
+        features = H.coreFeatures();
         compat = require('../../lib/compat.js');
         defaults = require('../../lib/defaults.js');
         rows = require('../../lib/rows.js');
@@ -29,10 +37,12 @@ describe('integration: core', { skip }, () => {
         H.restoreCore();
     });
 
-    it('checkCore() against this core: ok, no warnings', () => {
+    it('checkCore() against this core: ok; warnings only for missing optional features', () => {
         const result = compat.checkCore(rel => require(paths.join(H.EnigmaRoot, rel)));
         assert.deepEqual(result.missing, []);
-        assert.deepEqual(result.warnings, []);
+        const expected = expectedWarnings();
+        assert.equal(result.warnings.length, expected.length, result.warnings.join('; '));
+        expected.forEach((re, i) => assert.match(result.warnings[i], re));
         assert.equal(result.ok, true);
         assert.equal(typeof result.version, 'string');
     });
@@ -51,12 +61,18 @@ describe('integration: core', { skip }, () => {
         const mod = require('../../lampboard.js');
         mod.moduleInitialize({}, err => {
             assert.equal(err, null);
-            //  one info line when all is well (operators see it at the
-            //  default level); no warnings on this core
+            //  one info line (operators see it at the default level),
+            //  after a warn line per missing optional feature
             const ours = logSink.filter(e => /^lampboard:/.test(String(e.args[1])));
+            const expected = expectedWarnings();
+            assert.equal(ours.length, expected.length + 1);
+            expected.forEach((re, i) => {
+                assert.equal(ours[i].level, 'warn');
+                assert.match(ours[i].args[1].replace(/^lampboard: /, ''), re);
+            });
             assert.deepEqual(
-                ours.map(e => [e.level, e.args[1]]),
-                [['info', 'lampboard: ready (core features found)']]
+                [ours[expected.length].level, ours[expected.length].args[1]],
+                ['info', 'lampboard: ready (core features found)']
             );
             done();
         });
