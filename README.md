@@ -1,19 +1,23 @@
+<p align="center">
+  <img src="docs/lampboard-logo.png" alt="lampboard" width="600">
+</p>
+
 # lampboard
 
 A message index for [ENiGMA½ BBS](https://github.com/NuSkooler/enigma-bbs): one table lists every conference and message area the caller can read, with its total, new and "to you" counts and the date of the last post. Pick an area to read it; you come back to the index, which has moved on to the next area with new mail.
 
 If your callers know Mystic's `MI` message index or Synchronet DDMsgReader's indexed mode, this is that, for ENiGMA½.
 
-```
- lampboard -- Message Index ─────────────────────────────────────────────
-    Area                                    Total   New Yours Last Post
-───── System Internal ──────────────────────────────────────────────────
-NEW Private Mail                                2     1     1 never
-    System Bulletins                            0     -     - never
-───── fsxNet ───────────────────────────────────────────────────────────
-NEW fsxNet General                            100     5     - 18 Nov 26
-    BBS Discussion                             20     -     - never
-```
+![lampboard's message index: conferences and areas with total, new and "to you" counts, sorted by new messages](docs/screenshot-index.png)
+
+<details>
+<summary>The help screen</summary>
+
+![lampboard's help screen listing its keys](docs/screenshot-help.png)
+
+</details>
+
+The screenshots show the placeholder art shipped here, with made-up areas and posts. They were rendered in the Px437 IBM VGA 8x16 font from [The Ultimate Oldschool PC Font Pack](https://int10h.org/oldschool-pc-fonts/) (CC BY-SA 4.0).
 
 The Enigma machine's lampboard lit up letters; this lights up the areas with new mail.
 
