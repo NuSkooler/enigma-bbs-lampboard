@@ -32,7 +32,7 @@ The Enigma machine's lampboard lit up letters; this lights up the areas with new
 
     There is no `npm install` step: lampboard has no dependencies of its own and uses ENiGMA½'s.
 
-2. Restart ENiGMA½ once. Mods are loaded at startup; menu changes after that hot-reload. The log shows `lampboard: ready (core features found)` (info), or a warning if something is missing (see [Troubleshooting](#troubleshooting)).
+2. Restart ENiGMA½ once. Mods are loaded at startup; menu changes after that hot-reload. The log shows `lampboard: ready (core features found)` (info), or a warning if something is missing, followed by `lampboard: ready, with the limits warned about above` when lampboard still works (see [Troubleshooting](#troubleshooting)).
 
 ## Add the menus
 

@@ -72,7 +72,12 @@ describe('integration: core', { skip }, () => {
             });
             assert.deepEqual(
                 [ours[expected.length].level, ours[expected.length].args[1]],
-                ['info', 'lampboard: ready (core features found)']
+                [
+                    'info',
+                    expected.length > 0
+                        ? 'lampboard: ready, with the limits warned about above'
+                        : 'lampboard: ready (core features found)',
+                ]
             );
             done();
         });

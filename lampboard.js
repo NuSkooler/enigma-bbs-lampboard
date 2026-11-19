@@ -89,7 +89,9 @@ exports.moduleInitialize = (initInfo, cb) => {
             );
             log.info(
                 { version: result.version },
-                'lampboard: ready (core features found)'
+                result.warnings.length > 0
+                    ? 'lampboard: ready, with the limits warned about above'
+                    : 'lampboard: ready (core features found)'
             );
         }
     } catch (e) {
