@@ -1,0 +1,33 @@
+{
+    "name": "enigma-bbs-lampboard",
+    "version": "0.1.0",
+    "description": "lampboard: a message index for ENiGMA½ BBS that lists every conference and area with its new message counts",
+    "author": "Bryan Ashby <bryan@l33t.codes>",
+    "license": "BSD-2-Clause",
+    "private": true,
+    "main": "lampboard.js",
+    "scripts": {
+        "test": "node --test test/unit",
+        "test:integration": "node --test --test-concurrency=1 test/integration",
+        "lint": "eslint .",
+        "pretty": "prettier --write .",
+        "pretty:check": "prettier --check ."
+    },
+    "keywords": [
+        "bbs",
+        "enigma-bbs",
+        "message-index",
+        "mod"
+    ],
+    "devDependencies": {
+        "@eslint/js": "^9.36.0",
+        "eslint": "^9.36.0",
+        "eslint-config-prettier": "^10.1.8",
+        "globals": "^16.4.0",
+        "hjson": "3.2.2",
+        "prettier": "^3.9.6"
+    },
+    "engines": {
+        "node": ">=22"
+    }
+}
