@@ -118,6 +118,9 @@ describe('integration: lampboard module', { skip }, () => {
         saved.swapped = true;
         messageArea.getMessageAreaStats = (user, tags, cb) => {
             db.statsCalls.push(tags.slice());
+            if (db.statsCalls.length > db.failStatsAfter) {
+                return cb(new Error('stats unavailable'));
+            }
             const out = {};
             tags.forEach(t => {
                 if (db.stats[t]) {
@@ -128,6 +131,9 @@ describe('integration: lampboard module', { skip }, () => {
         };
         messageArea.markMessageAreaRead = (user, tag, cb) => {
             db.markCalls.push(tag);
+            if (db.markError) {
+                return cb(db.markError);
+            }
             if (db.stats[tag]) {
                 db.stats[tag].newCount = 0;
                 db.stats[tag].yours = 0;
@@ -147,7 +153,13 @@ describe('integration: lampboard module', { skip }, () => {
     });
 
     beforeEach(() => {
-        db = { stats: freshStats(), markCalls: [], statsCalls: [] };
+        db = {
+            stats: freshStats(),
+            markCalls: [],
+            statsCalls: [],
+            failStatsAfter: Infinity,
+            markError: null,
+        };
     });
 
     //  An instance of |menuName| as menu_stack would create it, with the art
@@ -194,6 +206,20 @@ describe('integration: lampboard module', { skip }, () => {
         const row = tv(inst).getFocusedItem();
         return row ? row.key : null;
     };
+    //  Every table row on screen shows the row TableView holds at that
+    //  index (header on row 3, body from row 4)
+    const assertScreenMatchesRows = (inst, client) => {
+        tv(inst)
+            .getItems()
+            .forEach((r, i) => {
+                const shown = H.drawnOnRow(client.writes, 4 + i);
+                const name = 'group' === r.kind ? r.confName : r.areaName;
+                assert.ok(
+                    shown && shown.includes(name),
+                    `row ${4 + i} shows ${JSON.stringify(shown)}, expected ${name}`
+                );
+            });
+    };
     const text = (inst, id) => {
         const v = inst.getView('main', id);
         return v ? H.visible(v.getData()) : null;
@@ -224,8 +250,8 @@ describe('integration: lampboard module', { skip }, () => {
         assert.equal(text(inst, 3), 'Private user to user mail');
         //  %TL10+ module defaults (MenuModule.getDefaultCustomInfoFormats)
         assert.equal(text(inst, 10), 'Last post never');
-        assert.equal(text(inst, 11), 'Your new scan areas, All areas shown');
-        assert.equal(text(inst, 12), 'Sorted by board order');
+        assert.equal(text(inst, 11), 'Sorted by board order');
+        assert.equal(text(inst, 12), 'Your new scan areas, All areas shown');
         //  one stats query over every readable area
         assert.equal(db.statsCalls.length, 1);
         assert.equal(db.statsCalls[0].length, 8);
@@ -252,10 +278,10 @@ describe('integration: lampboard module', { skip }, () => {
 
     it('an operator info format wins; null hides the view', async () => {
         const { inst } = await enter('lampboardMain', {
-            config: { mainInfoFormat10: '|07{areaName}!', mainInfoFormat12: null },
+            config: { mainInfoFormat10: '|07{areaName}!', mainInfoFormat11: null },
         });
         assert.equal(text(inst, 10), 'Private Mail!');
-        assert.equal(text(inst, 12), '');
+        assert.equal(text(inst, 11), '');
     });
 
     it('n: next area with new messages, then "no other" when it runs out', async () => {
@@ -312,7 +338,7 @@ describe('integration: lampboard module', { skip }, () => {
         assert.ok(keys.includes('fsx_mystic'));
         assert.equal(focusedKey(inst), 'fsx_gen');
         assert.equal(text(inst, 2), 'All areas');
-        assert.equal(text(inst, 11), 'All areas, All areas shown');
+        assert.equal(text(inst, 12), 'All areas, All areas shown');
         //  no new query
         assert.equal(db.statsCalls.length, 1);
         client.press('V', 'shift + v');
@@ -570,7 +596,7 @@ describe('integration: lampboard module', { skip }, () => {
         client.press('o');
         assert.deepEqual(tv(inst).getSort().order, 'desc');
         assert.equal(text(inst, 2), 'Sorted by Area descending');
-        assert.equal(text(inst, 12), 'Sorted by Area descending');
+        assert.equal(text(inst, 11), 'Sorted by Area descending');
     });
 
     it('?: shows the help art; any key brings the index back, still working', async () => {
@@ -634,5 +660,160 @@ describe('integration: lampboard module', { skip }, () => {
         assert.equal(has(), false);
         client.press('v');
         assert.equal(has(), false);
+    });
+    //  ── review fixes ────────────────────────────────────────────────────────
+
+    it('config.dateTimeFormat formats {lastPost}; otherwise the theme format', async () => {
+        const own = await enter('lampboardMain', {
+            config: { dateTimeFormat: '[on] DD/MM/YYYY' },
+        });
+        own.client.press('n'); //  fsx_gen, last post 2026-11-18T12:00Z
+        assert.equal(text(own.inst, 10), 'Last post on 18/11/2026');
+
+        const themed = await enter('lampboardMain');
+        themed.client.press('n');
+        //  the fake theme's 'YYYY-MM-DD HH:mm'
+        assert.match(text(themed.inst, 10), /^Last post 2026-11-1[89] \d\d:\d\d$/);
+    });
+
+    it('an empty table leaves the last post line blank', async () => {
+        db.stats = noneNew();
+        const { inst } = await enter('lampboardMain', { config: { hideNoNew: true } });
+        assert.equal(tv(inst).getItems().length, 0);
+        assert.equal(text(inst, 10), '');
+        assert.equal(text(inst, 3), '');
+    });
+
+    it('with a sort in force, mark read re-sorts and the snap follows the screen', async () => {
+        const { inst, client } = await enter('lampboardMain');
+        client.press('s'); //  area
+        client.press('s'); //  new, desc
+        assert.deepEqual(tv(inst).getSort().column, 'new');
+        assert.equal(tv(inst).getSort().order, 'desc');
+        const fsx = () =>
+            tv(inst)
+                .getItems()
+                .filter(r => 'fsxnet' === r.confTag && 'group' !== r.kind)
+                .map(r => r.key);
+        assert.deepEqual(fsx(), ['fsx_gen', 'fsx_mystic', 'fsx_bbs']);
+
+        while ('fsx_gen' !== focusedKey(inst)) {
+            client.press('n');
+        }
+        client.press('m');
+        client.press('y');
+        await settle();
+        //  fsx_gen (now 0 new) moved below fsx_mystic, on screen too
+        assert.deepEqual(fsx(), ['fsx_mystic', 'fsx_gen', 'fsx_bbs']);
+        assertScreenMatchesRows(inst, client);
+        //  the next new area after fsx_gen on screen is the ActivityPub one
+        //  (in the stale order it would have been fsx_mystic)
+        assert.equal(focusedKey(inst), 'activitypub_shared');
+    });
+
+    it('with a sort in force, re-scan re-sorts', async () => {
+        const { inst, client } = await enter('lampboardMain');
+        client.press('s');
+        client.press('s'); //  new, desc
+        db.stats.fsx_bbs.newCount = 9;
+        client.press('r');
+        await settle();
+        const fsx = tv(inst)
+            .getItems()
+            .filter(r => 'fsxnet' === r.confTag && 'group' !== r.kind)
+            .map(r => r.key);
+        assert.deepEqual(fsx, ['fsx_bbs', 'fsx_gen', 'fsx_mystic']);
+        assertScreenMatchesRows(inst, client);
+    });
+
+    it('re-scan counts areas that dropped out of view', async () => {
+        const { inst, client } = await enter('lampboardMain', {
+            config: { hideNoNew: true },
+        });
+        db.stats.fsx_gen.newCount = 0;
+        client.press('r');
+        await settle();
+        assert.ok(
+            !tv(inst)
+                .getItems()
+                .some(r => 'fsx_gen' === r.key)
+        );
+        assert.equal(text(inst, 2), 'Re-scanned: 1 area(s) changed');
+    });
+
+    it('mark read whose stats re-read fails: an error status, logged', async () => {
+        const { inst, client } = await enter('lampboardMain', {
+            config: { confirmMarkRead: false },
+        });
+        db.failStatsAfter = 1; //  the entry query works, the next one fails
+        client.press('m');
+        await settle();
+        assert.deepEqual(db.markCalls, ['private_mail']);
+        assert.equal(text(inst, 2), 'Error: stats unavailable');
+        assert.ok(
+            client.logSink.some(
+                e => 'warn' === e.level && /cannot re-read the area stats/.test(e.args[1])
+            )
+        );
+    });
+
+    it('an ActivityPub pointer that cannot move is logged; the browser still opens', async () => {
+        const { client } = await enter('lampboardMain');
+        db.markError = new Error('db locked');
+        client.press('n');
+        client.press('n');
+        client.press('n'); //  activitypub_shared
+        client.press('\r', 'return');
+        await settle();
+        const gotos = client.menuStack.calls.filter(c => 'goto' === c[0]);
+        assert.equal(gotos[0][1], 'newScanActivityPubList');
+        assert.ok(
+            client.logSink.some(
+                e => 'warn' === e.level && /ActivityPub area pointer/.test(e.args[1])
+            )
+        );
+    });
+
+    it('left while help is up: the next key does not redraw or re-attach anything', async () => {
+        const { inst, client } = await enter('lampboardMain');
+        client.press('?');
+        await settle();
+        assert.deepEqual(inst.artDrawn, ['LAMPBRD', 'LAMPBRDHLP']);
+        //  e.g. an interrupt: realtime reload, or the caller dropping
+        inst.leave();
+        assert.equal(client.listenerCount('key press'), 0);
+        client.press('x');
+        await settle();
+        assert.deepEqual(inst.artDrawn, ['LAMPBRD', 'LAMPBRDHLP']);
+        assert.equal(client.listenerCount('key press'), 0);
+    });
+
+    it('left while the mark-read question is up: nothing is marked', async () => {
+        const { inst, client } = await enter('lampboardMain');
+        client.press('m');
+        inst.leave();
+        assert.equal(client.listenerCount('key press'), 0);
+        client.press('y');
+        await settle();
+        assert.deepEqual(db.markCalls, []);
+    });
+
+    it('left before the stats come back: the login entry neither draws nor moves on', async () => {
+        const made = create('lampboardLogin');
+        const realStats = messageArea.getMessageAreaStats;
+        let release;
+        messageArea.getMessageAreaStats = (user, tags, cb) => {
+            release = () => realStats(user, tags, cb);
+        };
+        try {
+            made.inst.enter();
+            made.inst.leave();
+            release();
+        } finally {
+            messageArea.getMessageAreaStats = realStats;
+        }
+        await settle();
+        assert.deepEqual(made.inst.artDrawn, []);
+        assert.deepEqual(made.client.menuStack.calls, []);
     });
 });

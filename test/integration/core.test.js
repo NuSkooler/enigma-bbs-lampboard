@@ -15,9 +15,10 @@ describe('integration: core', { skip }, () => {
     let defaults;
     let rows;
     let TableView;
+    let logSink;
 
     before(() => {
-        H.installCore();
+        ({ logSink } = H.installCore());
         compat = require('../../lib/compat.js');
         defaults = require('../../lib/defaults.js');
         rows = require('../../lib/rows.js');
@@ -50,6 +51,13 @@ describe('integration: core', { skip }, () => {
         const mod = require('../../lampboard.js');
         mod.moduleInitialize({}, err => {
             assert.equal(err, null);
+            //  one info line when all is well (operators see it at the
+            //  default level); no warnings on this core
+            const ours = logSink.filter(e => /^lampboard:/.test(String(e.args[1])));
+            assert.deepEqual(
+                ours.map(e => [e.level, e.args[1]]),
+                [['info', 'lampboard: ready (core features found)']]
+            );
             done();
         });
     });

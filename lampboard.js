@@ -87,7 +87,10 @@ exports.moduleInitialize = (initInfo, cb) => {
             result.warnings.forEach(w =>
                 log.warn({ version: result.version }, `lampboard: ${w}`)
             );
-            log.debug({ version: result.version }, 'lampboard: core features found');
+            log.info(
+                { version: result.version },
+                'lampboard: ready (core features found)'
+            );
         }
     } catch (e) {
         //  never fail the boot
@@ -184,6 +187,9 @@ exports.getModule = class LampboardModule extends MenuModule {
         //  before anything is drawn
         if (this.haveNext() && !this.savedState) {
             return this.loadData(err => {
+                if (this.left) {
+                    return;
+                }
                 if (!err && 0 === this.totals.totalNew) {
                     return this.nextMenu(noop);
                 }
@@ -195,7 +201,11 @@ exports.getModule = class LampboardModule extends MenuModule {
     }
 
     leave() {
+        //  callbacks still in flight (stats, help, mark read) must not draw
+        //  over, or re-attach input to, whatever menu comes next
+        this.left = true;
         this.removeConfirmHandler();
+        this.removeHelpHandler();
         super.leave();
     }
 
@@ -303,6 +313,9 @@ exports.getModule = class LampboardModule extends MenuModule {
                     this.bindTableEvents();
 
                     const show = err => {
+                        if (this.left) {
+                            return cb(null);
+                        }
                         if (err) {
                             this.client.log.warn(
                                 { error: err.message },
@@ -450,9 +463,16 @@ exports.getModule = class LampboardModule extends MenuModule {
 
         this.rebuild();
 
+        //  areas whose row changed or appeared, plus those that went away
+        const nextKeys = new Set(rowKeys(this.rows));
         let changed = 0;
         this.rows.forEach(r => {
             if (isAreaRow(r) && rowPatch(prevByKey.get(r.key), r)) {
+                changed += 1;
+            }
+        });
+        prevRows.forEach(r => {
+            if (isAreaRow(r) && !nextKeys.has(r.key)) {
                 changed += 1;
             }
         });
@@ -475,6 +495,16 @@ exports.getModule = class LampboardModule extends MenuModule {
             }
         });
         tv.setDefaults({ emptyText: this.emptyText() });
+
+        //  updateItem() does not re-sort. (setDefaults() above re-sorts the
+        //  rows but does not redraw, so the screen would show the old order
+        //  while n and the snap walk the new one.) With a sort in force,
+        //  apply it again: changed rows move, the table redraws, focus stays
+        //  on the same row.
+        const sort = tv.getSort();
+        if (changed > 0 && sort) {
+            tv.setSort(sort.column, sort.order);
+        }
         return changed;
     }
 
@@ -529,7 +559,7 @@ exports.getModule = class LampboardModule extends MenuModule {
     fields() {
         const tv = this.table();
         const moment = requireDep(__dirname, 'moment');
-        const dateTimeFormat = this.getDateTimeFormat();
+        const dateTimeFormat = this.config.dateTimeFormat || this.getDateTimeFormat();
         return infoFields(tv ? tv.getFocusedItem() : null, this.totals, {
             scope: this.scope,
             scopeText:
@@ -541,7 +571,9 @@ exports.getModule = class LampboardModule extends MenuModule {
                 : this.config.filterOffText,
             sortText: tv ? this.sortText(tv) : '',
             neverText: this.config.neverText,
+            lastPostLineFormat: this.config.lastPostLineFormat,
             formatDate: d => moment(d).format(dateTimeFormat),
+            format: (fmt, obj) => stringFormat(fmt, obj, this.client),
         });
     }
 
@@ -580,7 +612,17 @@ exports.getModule = class LampboardModule extends MenuModule {
             return messageArea().markMessageAreaRead(
                 this.client.user,
                 row.areaTag,
-                () => {
+                err => {
+                    if (err) {
+                        //  as new_scan: open the browser anyway
+                        this.client.log.warn(
+                            { areaTag: row.areaTag, error: err.message },
+                            'lampboard: cannot move the ActivityPub area pointer'
+                        );
+                    }
+                    if (this.left) {
+                        return cb(null);
+                    }
                     this.gotoMenu(
                         menuName,
                         { extraArgs: { messageAreaTag: row.areaTag } },
@@ -717,6 +759,9 @@ exports.getModule = class LampboardModule extends MenuModule {
         const ma = messageArea();
         const fields = this.fields();
         ma.markMessageAreaRead(this.client.user, row.areaTag, err => {
+            if (this.left) {
+                return;
+            }
             if (err) {
                 this.client.log.warn(
                     { areaTag: row.areaTag, error: err.message },
@@ -725,9 +770,21 @@ exports.getModule = class LampboardModule extends MenuModule {
                 return this.setStatus(`Error: ${err.message}`);
             }
             ma.getMessageAreaStats(this.client.user, [row.areaTag], (err, stats) => {
-                if (!err && stats && stats[row.areaTag]) {
+                if (this.left) {
+                    return;
+                }
+                if (err) {
+                    //  marked, but the new counts are unknown: say so rather
+                    //  than show a row that may be wrong as "read"
+                    this.client.log.warn(
+                        { areaTag: row.areaTag, error: err.message },
+                        'lampboard: marked read, but cannot re-read the area stats'
+                    );
+                    return this.setStatus(`Error: ${err.message}`);
+                }
+                if (stats && stats[row.areaTag]) {
                     this.stats[row.areaTag] = stats[row.areaTag];
-                } else if (!err) {
+                } else {
                     //  nothing back: count it as read
                     this.stats[row.areaTag] = Object.assign({}, this.stats[row.areaTag], {
                         newCount: 0,
@@ -771,6 +828,9 @@ exports.getModule = class LampboardModule extends MenuModule {
         confs.forEach(c => c.areas.forEach(a => tags.push(a.areaTag)));
 
         messageArea().getMessageAreaStats(this.client.user, tags, (err, stats) => {
+            if (this.left) {
+                return cb(null);
+            }
             if (err) {
                 this.client.log.warn({ error: err.message }, 'lampboard: re-scan failed');
                 this.setStatus(`Error: ${err.message}`);
@@ -798,6 +858,9 @@ exports.getModule = class LampboardModule extends MenuModule {
             this.config.art.help,
             { clearScreen: true, trailingLF: false },
             err => {
+                if (this.left) {
+                    return;
+                }
                 if (err) {
                     this.client.log.warn(
                         { art: this.config.art.help, error: err.message },
@@ -805,19 +868,41 @@ exports.getModule = class LampboardModule extends MenuModule {
                     );
                     return this.redrawMain();
                 }
-                this.client.waitForKeyPress(() => this.redrawMain());
+                //  one key returns; our own listener (not waitForKeyPress())
+                //  so that leave() can remove it
+                this.removeHelpHandler();
+                this.helpKeyHandler = () => {
+                    this.removeHelpHandler();
+                    if (!this.left) {
+                        this.redrawMain();
+                    }
+                };
+                this.client.on('key press', this.helpKeyHandler);
             }
         );
         return cb(null);
     }
 
+    removeHelpHandler() {
+        if (this.helpKeyHandler) {
+            this.client.removeListener('key press', this.helpKeyHandler);
+            this.helpKeyHandler = null;
+        }
+    }
+
     //  the index again, as it was (after help)
     redrawMain() {
         const vc = this.viewControllers[FormName];
+        if (this.left || !vc) {
+            return;
+        }
         this.displayAsset(
             this.config.art.main,
             { clearScreen: true, trailingLF: false },
             () => {
+                if (this.left) {
+                    return;
+                }
                 vc.redrawAll();
                 vc.setFocus(true);
                 //  setFocus(false) dropped every view listener; setFocus(true)
