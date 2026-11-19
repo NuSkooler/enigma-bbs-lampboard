@@ -166,10 +166,20 @@ function drawnOnRow(writes, row) {
     return visible(-1 === next ? rest : rest.slice(0, next));
 }
 
+//
+//  Records calls. With |roundTrip| set, goto() also does what
+//  menu_stack.goto() does to the outgoing menu: saves its state
+//  (getSaveState()) and calls leave(); each hop is kept in |trips| so a
+//  test can create the instance the return would create (restoreSavedState()
+//  then enter()).
+//
 class FakeMenuStack {
-    constructor() {
+    constructor(client) {
+        this.client = client;
         this.calls = [];
         this.gotoError = null;
+        this.roundTrip = false;
+        this.trips = [];
     }
     next(cb) {
         this.calls.push(['next']);
@@ -185,6 +195,14 @@ class FakeMenuStack {
     }
     goto(name, options, cb) {
         this.calls.push(['goto', name, options]);
+        if (!this.gotoError && this.roundTrip && this.client) {
+            const from = this.client.currentMenuModule;
+            if (from) {
+                const state = from.getSaveState();
+                from.leave();
+                this.trips.push({ name, options, from, state });
+            }
+        }
         if (cb) {
             cb(this.gotoError);
         }
@@ -240,8 +258,16 @@ class FakeClient extends EventEmitter {
             menus: {},
             prompts: {},
         };
-        this.menuStack = new FakeMenuStack();
-        this.interruptQueue = { hasItems: () => false };
+        this.menuStack = new FakeMenuStack(this);
+        //  what MenuModule.attemptInterruptNow() shows a realtime item with
+        this.interruptsShown = [];
+        this.interruptQueue = {
+            hasItems: () => false,
+            displayWithItem: (item, cb) => {
+                this.interruptsShown.push(item);
+                return cb(null);
+            },
+        };
     }
 
     waitForKeyPress(cb) {

@@ -816,4 +816,120 @@ describe('integration: lampboard module', { skip }, () => {
         assert.deepEqual(made.inst.artDrawn, []);
         assert.deepEqual(made.client.menuStack.calls, []);
     });
+    //  ── realtime interrupts and a real round trip ───────────────────────────
+
+    //  core's attemptInterruptNow(), as the interrupt queue calls it
+    const attempt = inst =>
+        new Promise((resolve, reject) =>
+            inst.attemptInterruptNow({ text: 'node message' }, (err, shown) =>
+                err ? reject(err) : resolve(shown)
+            )
+        );
+
+    it('interrupt: realtime: held while help is up, shown again once it closes', async () => {
+        const { inst, client } = await enter('lampboardMain', {
+            config: { interrupt: 'realtime' },
+        });
+        let reloads = 0;
+        inst.reload = cb => {
+            reloads += 1;
+            return cb(null);
+        };
+
+        //  the index itself: shown at once, then the menu reloads (core)
+        assert.equal(await attempt(inst), true);
+        assert.equal(client.interruptsShown.length, 1);
+        assert.equal(reloads, 1);
+
+        client.press('?');
+        //  held from the moment help is asked for...
+        assert.equal(await attempt(inst), false);
+        await settle();
+        assert.equal(await attempt(inst), false);
+        assert.equal(client.interruptsShown.length, 1);
+        assert.equal(reloads, 1);
+
+        //  ...so the next key only closes help, and the index is drawn once
+        client.press('x');
+        await settle();
+        assert.deepEqual(inst.artDrawn, ['LAMPBRD', 'LAMPBRDHLP', 'LAMPBRD']);
+        assert.equal(await attempt(inst), true);
+        assert.equal(client.interruptsShown.length, 2);
+    });
+
+    it('interrupt: realtime: held while the y/N question is up', async () => {
+        const { inst, client } = await enter('lampboardMain', {
+            config: { interrupt: 'realtime' },
+        });
+        inst.reload = cb => cb(null);
+        client.press('m');
+        assert.equal(await attempt(inst), false);
+        assert.equal(client.interruptsShown.length, 0);
+        client.press('n'); //  answers no
+        assert.deepEqual(db.markCalls, []);
+        assert.equal(await attempt(inst), true);
+    });
+
+    it('interrupt: queued (the default) is never shown in place', async () => {
+        const { inst } = await enter('lampboardMain');
+        assert.equal(await attempt(inst), false);
+    });
+
+    it('a real round trip: leave on goto, then a new instance from the saved state', async () => {
+        const client = new H.FakeClient();
+        client.menuStack.roundTrip = true;
+        const first = await enter('lampboardMain', { client });
+        client.press('v'); //  all areas
+        client.press('s'); //  area asc
+        client.press('o'); //  area desc
+        while ('fsx_gen' !== focusedKey(first.inst)) {
+            client.press('n');
+        }
+        client.press('\r', 'return');
+        await settle();
+
+        //  menu_stack saved the state and left the first instance
+        assert.equal(client.menuStack.trips.length, 1);
+        const trip = client.menuStack.trips[0];
+        assert.equal(trip.name, 'newScanMessageList');
+        assert.equal(trip.from, first.inst);
+        assert.equal(first.inst.left, true);
+        assert.equal(client.listenerCount('key press'), 0);
+
+        //  the caller reads everything in fsx_gen; msg_list returns
+        db.stats.fsx_gen.newCount = 0;
+        const statsCallsBefore = db.statsCalls.length;
+        const second = await enter('lampboardMain', { client, savedState: trip.state });
+
+        assert.equal(db.statsCalls.length, statsCallsBefore + 1); //  one rebuild
+        assert.equal(second.inst.scope, 'all');
+        assert.deepEqual(tv(second.inst).getSort(), {
+            column: 'area',
+            order: 'desc',
+            then: [],
+        });
+        const fsx = tv(second.inst)
+            .getItems()
+            .filter(r => 'fsxnet' === r.confTag && 'group' !== r.kind)
+            .map(r => r.key);
+        assert.deepEqual(fsx, ['fsx_mystic', 'fsx_gen', 'fsx_bbs']);
+        //  past fsx_gen (done) in screen order: BBS Discussion has nothing
+        //  new, so on to the ActivityPub area
+        assert.equal(focusedKey(second.inst), 'activitypub_shared');
+        assertScreenMatchesRows(second.inst, client);
+
+        //  only the new form listens; the old instance does nothing more
+        assert.equal(client.listenerCount('key press'), 1);
+        const firstFocus = tv(first.inst).focusedItemIndex;
+        client.press('n');
+        client.press('?');
+        await settle();
+        assert.deepEqual(first.inst.artDrawn, ['LAMPBRD']);
+        assert.equal(tv(first.inst).focusedItemIndex, firstFocus);
+        first.inst.redrawMain();
+        first.inst.help(() => {});
+        await settle();
+        assert.deepEqual(first.inst.artDrawn, ['LAMPBRD']);
+        assert.deepEqual(second.inst.artDrawn, ['LAMPBRD', 'LAMPBRDHLP']);
+    });
 });
