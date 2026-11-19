@@ -22,13 +22,7 @@ const {
     tableDefaults,
     infoFormatDefaults,
 } = require('./lib/defaults.js');
-const {
-    buildRows,
-    rowPatch,
-    rowKeys,
-    infoFields,
-    isAreaRow,
-} = require('./lib/rows.js');
+const { buildRows, rowPatch, rowKeys, infoFields, isAreaRow } = require('./lib/rows.js');
 const {
     pickFocusIndex,
     visibleSortable,
