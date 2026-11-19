@@ -115,8 +115,9 @@
             module: @userModule:lampboard
             //  Stock new scan also scans the file base; lampboard does not.
             //  To keep the file new scan at login, change this to
-            //  fullLoginSequenceFileScan (below; needs an ENiGMA½ whose
-            //  new_scan has skipMessageBase).
+            //  fullLoginSequenceFileScan (below). That needs an ENiGMA½ whose
+            //  new_scan has skipMessageBase (#1126): an older one ignores
+            //  the option and runs the full message new scan again.
             next: fullLoginSequenceSysStats
             config: {
                 //  See README.md for every key and its default
@@ -206,6 +207,7 @@
 
         //  A files-only new scan for the login chain:
         //  lampboardLogin -> fullLoginSequenceFileScan -> fullLoginSequenceSysStats
+        //  Needs new_scan's skipMessageBase (#1126); see lampboardLogin above
         fullLoginSequenceFileScan: {
             desc: New Scan
             module: new_scan

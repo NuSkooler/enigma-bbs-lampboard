@@ -32,7 +32,7 @@ The Enigma machine's lampboard lit up letters; this lights up the areas with new
 
     There is no `npm install` step: lampboard has no dependencies of its own and uses ENiGMA½'s.
 
-2. Restart ENiGMA½ once. Mods are loaded at startup; menu changes after that hot-reload. The log shows one `lampboard:` line if something is missing (see [Troubleshooting](#troubleshooting)).
+2. Restart ENiGMA½ once. Mods are loaded at startup; menu changes after that hot-reload. The log shows `lampboard: ready (core features found)` (info), or a warning if something is missing (see [Troubleshooting](#troubleshooting)).
 
 ## Add the menus
 
@@ -114,13 +114,15 @@ Do **not** put an `acs` in the lampboard menus' own `config`: a menu whose ACS f
 
 ### Keeping the file new scan at login
 
-The stock login new scan also scans the file base; lampboard reads messages only. To keep the file new scan for lampboard users, chain the files-only entry (needs an ENiGMA½ whose `new_scan` has `skipMessageBase`):
+The stock login new scan also scans the file base; lampboard reads messages only. To keep the file new scan for lampboard users, chain the files-only entry:
 
 ```
 lampboardLogin -> fullLoginSequenceFileScan -> fullLoginSequenceSysStats
 ```
 
 In `lampboardLogin`, change `next: fullLoginSequenceSysStats` to `next: fullLoginSequenceFileScan`. The `fullLoginSequenceFileScan` entry in `menus/lampboard.hjson` already goes on to `fullLoginSequenceSysStats`.
+
+> **This needs an ENiGMA½ whose `new_scan` has `skipMessageBase`** (NuSkooler/enigma-bbs#1126). An older `new_scan` ignores the option, so the chain would run the full message new scan again after lampboard. On such a version leave `next` as shipped.
 
 ## Keys
 
@@ -154,7 +156,7 @@ The methods are `readArea`, `nextNew`, `toggleScope`, `toggleFilter`, `markRead`
 
 - **Scope.** It starts on your new scan areas (what the stock new scan would scan: your configured selection, or every area if you have not made one); `v` switches to every area you can read. Private mail and bulletins (System Internal) come first. Hidden conferences that new scan scans (such as ActivityPub) are listed in both scopes.
 - **Reading.** Enter opens your operator's new scan message list for the area (`newScanMessageList`), which starts at the first new message. Reading on past the last message brings you back to the index. An area with nothing new opens at its newest message (on an ENiGMA½ with `msg_list`'s `focusWhenNoneNew`; older versions open at the first). ActivityPub areas open the ActivityPub browser, and their pointer moves to the newest post first, as with the stock new scan.
-- **Coming back** rebuilds the counts (one query) and moves the highlight to the next area with new mail if the one you read is done. Your scope, filter and sort stay as you left them for the rest of the session.
+- **Coming back** from reading rebuilds the counts (one query) and moves the highlight to the next area with new mail if the one you read is done. Your scope, filter and sort stay as you left them while you are in the index (reading an area and coming back keeps them); leaving the index and entering it again starts from the configured defaults.
 - **`x` in the message list** leaves the index too (back to the menu, or on with the login).
 
 ## Configuration
@@ -167,7 +169,7 @@ Set these in the menu entry's `config`, or in `theme.hjson` under `customization
 | `art.help` | `LAMPBRDHLP` | Help art; any key returns |
 | `messageListMenu` | `newScanMessageList` | Menu opened on Enter (a `msg_list` entry) |
 | `activityPubListMenu` | `newScanActivityPubList` | Menu for ActivityPub areas |
-| `initialScope` | `newscan` | `newscan` or `all` |
+| `initialScope` | `newscan` | `newscan` or `all`. The login entry's "nothing new, skip" check looks at this scope |
 | `hideNoNew` | `false` | Start with areas that have nothing new hidden |
 | `omitMessageAreaTags` | `[]` | Area tags never shown |
 | `snapToNew` | `true` | Move to the next area with new messages on entry, on return and after marking read |
@@ -175,6 +177,7 @@ Set these in the menu entry's `config`, or in `theme.hjson` under `customization
 | `newIndicator` | `NEW` | `{newIndicator}` on rows with new messages (empty otherwise) |
 | `dateTimeFormat` | the theme's | `{lastPost}` in the text formats (the table column has its own `dateFormat`) |
 | `neverText` | `never` | `{lastPost}` for an area with no posts |
+| `lastPostLineFormat` | `\|08Last post \|07{lastPost}` | `{lastPostLine}`: this format, or nothing when no area is highlighted (an empty table) |
 | `areaDescFormat` | `{areaDesc}` | `%TL3` |
 | `statusIdleFormat` | `{newAreaCount} of {areaCount} areas have new messages` | `%TL2` when no message is showing |
 | `noNewText` | `No new messages` | `%TL2` when nothing is new |
@@ -202,7 +205,7 @@ The flow (main or login) is not a key: it is whether the entry has a `next`. Key
 
 `areaDescFormat`, `statusIdleFormat`, the messages and `mainInfoFormat10`+ can use:
 
-- **The highlighted area:** `{areaTag}`, `{areaName}`, `{areaDesc}`, `{confTag}`, `{confName}`, `{confDesc}`, `{total}`, `{newCount}`, `{yours}`, `{lastPost}` (formatted with `dateTimeFormat`), `{newIndicator}`.
+- **The highlighted area:** `{areaTag}`, `{areaName}`, `{areaDesc}`, `{confTag}`, `{confName}`, `{confDesc}`, `{total}`, `{newCount}`, `{yours}`, `{lastPost}` (formatted with `dateTimeFormat`), `{lastPostLine}` (see `lastPostLineFormat`), `{newIndicator}`. With nothing highlighted (an empty table) these are empty.
 - **The summary:** `{areaCount}`, `{newAreaCount}`, `{totalNew}`, `{totalYours}`, `{scope}` (`newscan` or `all`), `{scopeText}`, `{filterText}`, `{sortText}`.
 
 ### The custom range (`%TL10`+)
@@ -211,9 +214,9 @@ On an ENiGMA½ with module default info formats, lampboard ships these:
 
 | Format | Default |
 |---|---|
-| `mainInfoFormat10` | `\|08Last post \|07{lastPost}` |
-| `mainInfoFormat11` | `\|07{scopeText}\|08, \|07{filterText}` |
-| `mainInfoFormat12` | `\|07{sortText}` |
+| `mainInfoFormat10` | `{lastPostLine}` |
+| `mainInfoFormat11` | `\|07{sortText}` |
+| `mainInfoFormat12` | `\|07{scopeText}\|08, \|07{filterText}` |
 
 Any value you set wins, including `""` or `null`, which hide the view. Add `mainInfoFormat13` and up for more `%TL` views in your art. On older versions only the formats you set are drawn.
 
