@@ -47,6 +47,15 @@ describe('menus/lampboard.hjson', () => {
             assert.equal(menus.lampboardLogin.module, '@userModule:lampboard');
             assert.equal(menus.lampboardMain.next, undefined);
             assert.equal(typeof menus.lampboardLogin.next, 'string');
+            //  the login chain runs the files-only new scan, which goes on to
+            //  the stock chain
+            assert.equal(menus.lampboardLogin.next, 'fullLoginSequenceFileScan');
+            assert.equal(menus.fullLoginSequenceFileScan.module, 'new_scan');
+            assert.equal(menus.fullLoginSequenceFileScan.config.skipMessageBase, true);
+            assert.equal(
+                menus.fullLoginSequenceFileScan.next,
+                'fullLoginSequenceSysStats'
+            );
             //  the module draws its own art
             assert.equal(menus.lampboardMain.art, undefined);
             assert.equal(menus.lampboardLogin.art, undefined);

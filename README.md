@@ -55,7 +55,7 @@ Or paste the entries into your menu file. It holds three entries:
 |---|---|
 | `lampboardMain` | The index from the main menu. Quit goes back. |
 | `lampboardLogin` | The login new scan. With nothing new it goes straight on to `next` without drawing anything; quit (and `x` in the message list) also go on to `next`. |
-| `fullLoginSequenceFileScan` | A files-only new scan (`new_scan` with `skipMessageBase: true`), for keeping the file new scan at login (below). |
+| `fullLoginSequenceFileScan` | A files-only new scan (`new_scan` with `skipMessageBase: true`), run after lampboard at login (below). |
 
 The two lampboard entries are the same apart from `next`: that is the only thing that makes the login flow different. Each entry is customised separately in `theme.hjson`.
 
@@ -116,17 +116,15 @@ Do **not** put an `acs` in the lampboard menus' own `config`: a menu whose ACS f
 }
 ```
 
-### Keeping the file new scan at login
+### The file new scan at login
 
-The stock login new scan also scans the file base; lampboard reads messages only. To keep the file new scan for lampboard users, chain the files-only entry:
+The stock login new scan also scans the file base; lampboard reads messages only. So the shipped login chain goes on to a files-only new scan:
 
 ```
 lampboardLogin -> fullLoginSequenceFileScan -> fullLoginSequenceSysStats
 ```
 
-In `lampboardLogin`, change `next: fullLoginSequenceSysStats` to `next: fullLoginSequenceFileScan`. The `fullLoginSequenceFileScan` entry in `menus/lampboard.hjson` already goes on to `fullLoginSequenceSysStats`.
-
-> **This needs an ENiGMA½ whose `new_scan` has `skipMessageBase`** (NuSkooler/enigma-bbs#1126). An older `new_scan` ignores the option, so the chain would run the full message new scan again after lampboard. On such a version leave `next` as shipped.
+> **This needs an ENiGMA½ whose `new_scan` has `skipMessageBase`** (NuSkooler/enigma-bbs#1126). An older `new_scan` ignores the option, so the chain would run the full message new scan again after lampboard. On such a version, or to drop the file new scan, change `lampboardLogin`'s `next` to `fullLoginSequenceSysStats`.
 
 ## Keys
 
@@ -312,7 +310,7 @@ Sizes (`height`, `width`) go in the menu's `mci` block as usual; the shipped ent
 
 ## Notes
 
-- **No file new scan.** Lampboard reads messages. See [Keeping the file new scan at login](#keeping-the-file-new-scan-at-login).
+- **Messages only.** Lampboard does not scan the file base. The shipped login chain runs a files-only new scan after it; see [The file new scan at login](#the-file-new-scan-at-login).
 - **An area with nothing new** opens at its newest message only on an ENiGMA½ whose `msg_list` has `focusWhenNoneNew`; older versions open at the first message.
 - **`interrupt: realtime`** on a lampboard menu re-creates it when a message arrives, which resets the highlight, scope and sort. The default (queued) does not. While the help screen or the mark-read question is up, messages are held and shown by the next menu, as with queued (the key that dismisses a message would otherwise also close help or answer the question).
 - **Areas with new messages to you** are counted by name, as ENiGMA½'s new scan does; all new private mail counts as yours.
