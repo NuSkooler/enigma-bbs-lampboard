@@ -310,7 +310,7 @@ Sizes (`height`, `width`) go in the menu's `mci` block as usual; the shipped ent
 
 - **No file new scan.** Lampboard reads messages. See [Keeping the file new scan at login](#keeping-the-file-new-scan-at-login).
 - **An area with nothing new** opens at its newest message only on an ENiGMA½ whose `msg_list` has `focusWhenNoneNew`; older versions open at the first message.
-- **`interrupt: realtime`** on a lampboard menu re-creates it when a message arrives, which resets the highlight, scope and sort. The default (queued) does not.
+- **`interrupt: realtime`** on a lampboard menu re-creates it when a message arrives, which resets the highlight, scope and sort. The default (queued) does not. While the help screen or the mark-read question is up, messages are held and shown by the next menu, as with queued (the key that dismisses a message would otherwise also close help or answer the question).
 - **Areas with new messages to you** are counted by name, as ENiGMA½'s new scan does; all new private mail counts as yours.
 
 ## Troubleshooting

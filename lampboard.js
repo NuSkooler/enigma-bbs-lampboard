@@ -135,6 +135,24 @@ exports.getModule = class LampboardModule extends MenuModule {
 
     //  ── Lifecycle ────────────────────────────────────────────────────────────
 
+    //
+    //  With `interrupt: realtime`, core shows an interrupt over the screen
+    //  and then reload()s this menu, calling leave() only once the interrupt
+    //  is dismissed. While help or the y/N question is up, lampboard has its
+    //  own 'key press' listener, so the key that dismisses the interrupt
+    //  would also close help (redrawing this instance's art under the
+    //  reloaded one) or answer the question ('y' would mark the area read).
+    //  So hold interrupts while either is up: they stay queued and the next
+    //  menu shows them, as with the default `queued`. (The sysop_chat
+    //  pattern; core's own realTimeInterrupt state is left alone.)
+    //
+    attemptInterruptNow(interruptItem, cb) {
+        if (this.helpActive || this.confirmHandler) {
+            return cb(null, false);
+        }
+        return super.attemptInterruptNow(interruptItem, cb);
+    }
+
     getDefaultCustomInfoFormats(formName) {
         return infoFormatDefaults(formName);
     }
@@ -204,6 +222,7 @@ exports.getModule = class LampboardModule extends MenuModule {
         //  callbacks still in flight (stats, help, mark read) must not draw
         //  over, or re-attach input to, whatever menu comes next
         this.left = true;
+        this.helpActive = false;
         this.removeConfirmHandler();
         this.removeHelpHandler();
         super.leave();
@@ -600,6 +619,9 @@ exports.getModule = class LampboardModule extends MenuModule {
                 { menuName, areaTag: row.areaTag, error: err.message },
                 'lampboard: cannot open the message list'
             );
+            if (this.left) {
+                return;
+            }
             this.setStatus(
                 stringFormat(this.config.menuUnavailableText, fields, this.client)
             );
@@ -850,9 +872,11 @@ exports.getModule = class LampboardModule extends MenuModule {
 
     help(cb) {
         const vc = this.viewControllers[FormName];
-        if (!vc) {
+        if (!vc || this.left) {
             return cb(null);
         }
+        //  from here until the index is drawn again (see attemptInterruptNow())
+        this.helpActive = true;
         vc.setFocus(false);
         this.displayAsset(
             this.config.art.help,
@@ -909,6 +933,7 @@ exports.getModule = class LampboardModule extends MenuModule {
                 //  only puts back the form's own
                 this.bindTableEvents();
                 this.updateInfo();
+                this.helpActive = false;
             }
         );
     }
@@ -919,6 +944,9 @@ exports.getModule = class LampboardModule extends MenuModule {
     //
     confirm(question, cb) {
         const vc = this.viewControllers[FormName];
+        if (!vc) {
+            return;
+        }
         vc.setFocus(false);
         this.removeConfirmHandler();
 
